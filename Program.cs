@@ -16,7 +16,12 @@ builder.Services.AddDbContext<DbContexto>(options =>
     );
 });
 
+//Configuração do Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
+
 
 app.MapGet("/", () => "Hello World!");
 
@@ -32,5 +37,9 @@ app.MapPost("/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico admin
         return Results.Unauthorized();
     }
 });
+
+//Instancia o Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.Run();
