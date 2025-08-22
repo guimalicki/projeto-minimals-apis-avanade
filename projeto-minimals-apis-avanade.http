@@ -1,0 +1,6 @@
+@projeto_minimals_apis_avanade_HostAddress = http://localhost:5168
+
+GET {{projeto_minimals_apis_avanade_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
