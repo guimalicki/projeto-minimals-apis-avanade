@@ -9,12 +9,14 @@ namespace MinimalApi.Infraestrutura.Db;
 public class DbContexto : DbContext
 {
     private readonly IConfiguration _configuracaoAppSettings;
-    public DbContexto(IConfiguration configuracaoAppSettings)
+    public DbContexto(IConfiguration configuracaoAppSettings) //Construtor
     {
         _configuracaoAppSettings = configuracaoAppSettings;
     }
 
     public Microsoft.EntityFrameworkCore.DbSet<Administrador> Administradores { get; set; } = default!;
+    public Microsoft.EntityFrameworkCore.DbSet<Veiculo> Veiculos { get; set; } = default!;
+    
 
     //Seed para cadastrar um Administrador inicial no banco de dados
     protected override void OnModelCreating(ModelBuilder modelBuilder)
