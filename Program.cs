@@ -53,9 +53,31 @@ app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministra
 #endregion
 
 #region Veiculos
-// Define o endpoint para listar todos os veículos. O endpoint utiliza o serviço de veículo para obter a lista de veículos.
+
+ErrosDeValidacao validaDTO(VeiculoDTO veiculoDTO)
+{
+    var validacao = new ErrosDeValidacao();
+
+    if (string.IsNullOrEmpty(veiculoDTO.Nome))
+        validacao.Mensagens.Add("O nome não pode ser Vazio");
+
+    if (string.IsNullOrEmpty(veiculoDTO.Marca))
+        validacao.Mensagens.Add("A Marca não pode ficar em branco");
+
+    if (veiculoDTO.Ano < 1900)
+        validacao.Mensagens.Add("Veículo muito antigo. Somente anos superiores a 1900.");
+
+    return validacao;
+}
+
+// Define o endpoint para cadastrar os veículos
 app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
 {
+    
+    var validacao = validaDTO(veiculoDTO);
+    if (validacao.Mensagens.Count > 0)
+        return Results.BadRequest(validacao);
+
     Veiculo veiculo = new Veiculo
     {
         Nome = veiculoDTO.Nome,
@@ -90,11 +112,16 @@ app.MapGet("/veiculos", (IVeiculoServico veiculoServico) =>
 //Realiza a atualização do veículo
 app.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
 {
+
     Veiculo veiculo = veiculoServico.BuscaPorId(id);
     if (veiculo == null)
     {
         return Results.NotFound();
     }
+
+    var validacao = validaDTO(veiculoDTO);
+    if (validacao.Mensagens.Count > 0)
+        return Results.BadRequest(validacao);
 
     veiculo.Nome = veiculoDTO.Nome;
     veiculo.Marca = veiculoDTO.Marca;
