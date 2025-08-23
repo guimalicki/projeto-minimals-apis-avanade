@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace MinimalApi.Dominio.Entidades
 {
+    // Entidade Veículo
     public class Veiculo
     {
         [Key]
@@ -23,6 +24,6 @@ namespace MinimalApi.Dominio.Entidades
 
         [Required]
         public int Ano { get; set; } = default!;
-        
+
     }
 }

@@ -6,6 +6,7 @@ using MinimalApi.Dominio.Entidades;
 
 namespace MinimalApi.Dominio.Interfaces
 {
+    // Interface IVeiculoServico que define o contrato para o serviço de veículo
     public interface IVeiculoServico
     {
         List<Veiculo> Todos(int pagina = 1, string? nome = null, string? marca = null);

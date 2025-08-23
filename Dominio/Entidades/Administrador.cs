@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace MinimalApi.Dominio.Entidades
 {
+    // Entidade Administrador
     public class Administrador
     {
         //Atributos
@@ -25,6 +26,6 @@ namespace MinimalApi.Dominio.Entidades
         [Required]
         [StringLength(10)]
         public string Perfil { get; set; } = default!;
-        
+
     }
 }

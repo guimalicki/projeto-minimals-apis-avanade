@@ -8,11 +8,15 @@ using MinimalApi.DTOs;
 using MinimalApi.Infraestrutura.Db;
 
 #region Builder
+
+// Cria o builder da aplicação. O builder é responsável por configurar os serviços e o pipeline de middleware da aplicação.
 var builder = WebApplication.CreateBuilder(args);
 
+// Adiciona os serviços ao contêiner de injeção de dependência.
 builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
 builder.Services.AddScoped<IVeiculoServico, VeiculoServico>();
 
+// Configuração do Entity Framework com MySQL
 builder.Services.AddDbContext<DbContexto>(options =>
 {
     options.UseMySql(builder.Configuration.GetConnectionString("mysql"),
@@ -24,14 +28,17 @@ builder.Services.AddDbContext<DbContexto>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Constrói a aplicação.
 var app = builder.Build();
 #endregion
 
 #region Home
-app.MapGet("/", () => Results.Json(new Home()));
+// Define o endpoint raiz ("/") que retorna uma mensagem de boas-vindas.
+app.MapGet("/", () => Results.Json(new Home())).WithTags("Home"); // Adiciona a tag "Home" ao endpoint raiz para melhor organização no Swagger.
 #endregion
 
 #region Administradores
+// Define o endpoint para o login de administradores. O endpoint recebe um objeto LoginDTO no corpo da requisição e utiliza o serviço de administrador para validar o login.
 app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico administradorServico) =>
 {
     if (administradorServico.Login(loginDTO) != null)
@@ -42,10 +49,11 @@ app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministra
     {
         return Results.Unauthorized();
     }
-});
+}).WithTags("Administradores"); // Adiciona a tag "Administrador" ao endpoint de login para melhor organização no Swagger.
 #endregion
 
 #region Veiculos
+// Define o endpoint para listar todos os veículos. O endpoint utiliza o serviço de veículo para obter a lista de veículos.
 app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
 {
     Veiculo veiculo = new Veiculo
@@ -56,13 +64,54 @@ app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veic
     };
     veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
+}).WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de inclusão para melhor organização no Swagger.
+
+//realiza a busca do veículo por ID
+app.MapGet("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) =>
+{
+    var veiculo = veiculoServico.BuscaPorId(id);
+    if (veiculo == null)
+    {
+        return Results.NotFound();
+    }
+    return Results.Ok(veiculo);
+}).WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de obtenção por ID para melhor organização no Swagger.
+
+app.MapGet("/veiculos", (IVeiculoServico veiculoServico) =>
+{
+    List<Veiculo> veiculos = veiculoServico.Todos();
+    if (veiculos.Count <= 0)
+    {
+        return Results.NoContent();
+    }
+    return Results.Ok(veiculos);
+}).WithTags("Veículos");
+
+//Realiza a atualização do veículo
+app.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
+{
+    Veiculo veiculo = veiculoServico.BuscaPorId(id);
+    if (veiculo == null)
+    {
+        return Results.NotFound();
+    }
+
+    veiculo.Nome = veiculoDTO.Nome;
+    veiculo.Marca = veiculoDTO.Marca;
+    veiculo.Ano = veiculoDTO.Ano;
+
+    veiculoServico.Atualizar(veiculo);
+
+    return Results.Ok(veiculo);
 });
 
 #endregion
 
 #region App
+// Configuração do middleware para o Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 #endregion
 
+// Inicia a aplicação.
 app.Run();

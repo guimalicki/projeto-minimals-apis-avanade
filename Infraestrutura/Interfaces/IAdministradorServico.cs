@@ -7,6 +7,7 @@ using MinimalApi.DTOs;
 
 namespace MinimalApi.Dominio.Interfaces;
 
+// Interface IAdministradorServico que define o contrato para o serviço de administrador
 public interface IAdministradorServico
 {
    Administrador Login(LoginDTO loginDTO);
