@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MinimalApi.Dominio.Entidades;
+using MinimalApi.Dominio.Enuns;
 using MinimalApi.Dominio.Interfaces;
 using MinimalApi.Dominio.ModelViews;
 using MinimalApi.Dominio.Servicos;
@@ -50,6 +51,58 @@ app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministra
         return Results.Unauthorized();
     }
 }).WithTags("Administradores"); // Adiciona a tag "Administrador" ao endpoint de login para melhor organização no Swagger.
+
+app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, IAdministradorServico administradorServico) =>
+{
+    var validacao = new ErrosDeValidacao();
+
+    if (string.IsNullOrEmpty(administradorDTO.Email)) validacao.Mensagens.Add("Email não pode ser vazio");
+    if (string.IsNullOrEmpty(administradorDTO.Senha)) validacao.Mensagens.Add("Senha não pode ser vazia");
+    if (administradorDTO.Perfil == null) validacao.Mensagens.Add("Perfil não pode ser vazio");
+
+    if (validacao.Mensagens.Count > 0) return Results.BadRequest(validacao);
+
+    Administrador adm = new Administrador
+    {
+        Email = administradorDTO.Email,
+        Senha = administradorDTO.Senha,
+        Perfil = administradorDTO.Perfil.ToString() ?? Perfil.Editor.ToString()
+    };
+
+    administradorServico.Incluir(adm);
+
+    return Results.CreatedAtRoute($"/administrador/{adm.Id}, adm");
+
+}).WithTags("Administradores");
+
+app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico administradorServico) =>
+{
+    var adms = new List<AdministradorModelView>();
+    List<Administrador> administradors = administradorServico.Todos(pagina);
+    foreach (var adm in administradors)
+    {
+        adms.Add(new AdministradorModelView
+        {
+            Id = adm.Id,
+            Email = adm.Email,
+            Perfil = adm.Perfil
+        });
+    }
+    return Results.Ok(administradors);
+}).WithTags("Administradores");
+
+app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico administradorServico) =>
+{
+    Administrador adm = administradorServico.BuscaPorId(id);
+    if (adm == null) return Results.NotFound();
+    return Results.Ok(new AdministradorModelView
+    {
+        Id = adm.Id,
+        Email = adm.Email,
+        Perfil = adm.Perfil
+        
+    });
+}).WithTags("Administradores");
 #endregion
 
 #region Veiculos
@@ -149,6 +202,7 @@ app.MapDelete("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServ
 app.UseSwagger();
 app.UseSwaggerUI();
 #endregion
+
 
 // Inicia a aplicação.
 app.Run();
