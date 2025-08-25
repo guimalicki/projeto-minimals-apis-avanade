@@ -1,5 +1,11 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.IdentityModel.Tokens;
 using MinimalApi.Dominio.Entidades;
 using MinimalApi.Dominio.Enuns;
 using MinimalApi.Dominio.Interfaces;
@@ -12,6 +18,24 @@ using MinimalApi.Infraestrutura.Db;
 
 // Cria o builder da aplicação. O builder é responsável por configurar os serviços e o pipeline de middleware da aplicação.
 var builder = WebApplication.CreateBuilder(args);
+
+var key = builder.Configuration.GetSection("Jwt").ToString();
+if (string.IsNullOrEmpty(key)) key = "123456";   
+
+builder.Services.AddAuthentication(option =>
+{
+    option.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(option =>
+{
+    option.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateLifetime = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+    };
+});
+
+
 
 // Adiciona os serviços ao contêiner de injeção de dependência.
 builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
@@ -29,6 +53,8 @@ builder.Services.AddDbContext<DbContexto>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddAuthorization();
+
 // Constrói a aplicação.
 var app = builder.Build();
 #endregion
@@ -39,12 +65,42 @@ app.MapGet("/", () => Results.Json(new Home())).WithTags("Home"); // Adiciona a 
 #endregion
 
 #region Administradores
+
+string GerarTokenJWT(Administrador administrador)
+{
+    if (string.IsNullOrEmpty(key)) return string.Empty;
+
+    var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+    var claims = new List<Claim>()
+    {
+        new Claim("Email", administrador.Email),
+        new Claim("Perfil", administrador.Perfil)
+    };
+
+    var token = new JwtSecurityToken(
+        claims: claims,
+        expires: DateTime.Now.AddDays(1),
+        signingCredentials: credentials
+    );
+    return new JwtSecurityTokenHandler().WriteToken(token); 
+}
+
 // Define o endpoint para o login de administradores. O endpoint recebe um objeto LoginDTO no corpo da requisição e utiliza o serviço de administrador para validar o login.
 app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico administradorServico) =>
 {
-    if (administradorServico.Login(loginDTO) != null)
+    Administrador adm = administradorServico.Login(loginDTO);
+
+    if (adm != null)
     {
-        return Results.Ok("Login realizado com sucesso!");
+        string token = GerarTokenJWT(adm);
+        return Results.Ok(new AdmLogado
+        {
+            Email = adm.Email,
+            Perfil = adm.Perfil,
+            Token = token
+        });
     }
     else
     {
@@ -73,7 +129,7 @@ app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, I
 
     return Results.CreatedAtRoute($"/administrador/{adm.Id}, adm");
 
-}).WithTags("Administradores");
+}).RequireAuthorization().WithTags("Administradores");
 
 app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico administradorServico) =>
 {
@@ -89,7 +145,7 @@ app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico a
         });
     }
     return Results.Ok(administradors);
-}).WithTags("Administradores");
+}).RequireAuthorization().WithTags("Administradores");
 
 app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico administradorServico) =>
 {
@@ -102,7 +158,7 @@ app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico a
         Perfil = adm.Perfil
         
     });
-}).WithTags("Administradores");
+}).RequireAuthorization().WithTags("Administradores");
 #endregion
 
 #region Veiculos
@@ -139,7 +195,7 @@ app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veic
     };
     veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
-}).WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de inclusão para melhor organização no Swagger.
+}).RequireAuthorization().WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de inclusão para melhor organização no Swagger.
 
 //realiza a busca do veículo por ID
 app.MapGet("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) =>
@@ -150,7 +206,7 @@ app.MapGet("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico
         return Results.NotFound();
     }
     return Results.Ok(veiculo);
-}).WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de obtenção por ID para melhor organização no Swagger.
+}).RequireAuthorization().WithTags("Veículos"); // Adiciona a tag "Veículo" ao endpoint de obtenção por ID para melhor organização no Swagger.
 
 app.MapGet("/veiculos", (IVeiculoServico veiculoServico) =>
 {
@@ -160,7 +216,7 @@ app.MapGet("/veiculos", (IVeiculoServico veiculoServico) =>
         return Results.NoContent();
     }
     return Results.Ok(veiculos);
-}).WithTags("Veículos");
+}).RequireAuthorization().WithTags("Veículos");
 
 //Realiza a atualização do veículo
 app.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
@@ -183,7 +239,7 @@ app.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeicul
     veiculoServico.Atualizar(veiculo);
 
     return Results.Ok(veiculo);
-}).WithTags("Veículos");
+}).RequireAuthorization().WithTags("Veículos");
 
 app.MapDelete("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) =>
 {
@@ -193,7 +249,7 @@ app.MapDelete("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServ
     veiculoServico.ApagarPorId(veiculo);
     return Results.NoContent();
 
-}).WithTags("Veículos");
+}).RequireAuthorization().WithTags("Veículos");
 
 #endregion
 
@@ -201,6 +257,9 @@ app.MapDelete("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServ
 // Configuração do middleware para o Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseAuthentication();
+app.UseAuthorization();
 #endregion
 
 
